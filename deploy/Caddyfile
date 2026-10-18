@@ -1,0 +1,5 @@
+# Replace with your hostname; set public_origin to the matching HTTPS origin.
+# Set DASHBOARD_PASSWORD in the app's private environment; username is admin.
+garden.example.com {
+    reverse_proxy 127.0.0.1:8787
+}

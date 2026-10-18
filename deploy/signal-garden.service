@@ -1,0 +1,26 @@
+# Example only. Create the user, /opt/signal-garden checkout/venv and /etc/signal-garden config first.
+# Set database = "/var/lib/signal-garden/garden.sqlite3" in the service config.
+[Unit]
+Description=Signal Garden local content review
+After=network-online.target
+
+[Service]
+Type=simple
+User=signal-garden
+Group=signal-garden
+WorkingDirectory=/opt/signal-garden
+ExecStart=/opt/signal-garden/.venv/bin/python -m shill serve --config /etc/signal-garden/config.toml
+EnvironmentFile=/etc/signal-garden/secrets.env
+StateDirectory=signal-garden
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/signal-garden
+
+[Install]
+WantedBy=multi-user.target

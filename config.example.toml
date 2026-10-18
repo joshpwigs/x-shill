@@ -1,0 +1,26 @@
+# Copy to config.toml. Secrets belong in process environment, never this file.
+mode = "demo" # demo or manual; live X integration is intentionally unavailable
+database = "data/x-shill.sqlite3"
+host = "127.0.0.1"
+port = 8787
+# For remote use, set a strong DASHBOARD_PASSWORD and this HTTPS origin.
+public_origin = ""
+timezone = "America/Chicago"
+daily_post_limit = 3
+minimum_gap_minutes = 180
+quiet_start = 22
+quiet_end = 8
+max_attempts = 4
+lease_seconds = 120
+worker_interval_seconds = 5
+max_schedule_days = 90
+
+[model]
+provider = "template" # template (free/offline) or openai-compatible
+base_url = "https://api.openai.com/v1"
+name = "" # Explicit model and verified prices required for paid generation
+daily_budget_usd = 0.0
+input_usd_per_million = 0.0
+output_usd_per_million = 0.0
+max_output_tokens = 1800
+# Paid mode reads MODEL_API_KEY. No credentials are sent in demo/template mode.

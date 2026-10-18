@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light"><title>Signal Garden — thoughtful community growth</title>
+  <link rel="stylesheet" href="/static/style.css"><script defer src="/static/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#opportunities"><span class="brand-icon" aria-hidden="true">✳</span><span>signal garden<small>Less noise. More connection.</small></span></a>
+    <div class="workspace"><span class="avatar">MG</span><div id="workspace-name">Your project<small>Project workspace</small></div><span class="tiny-dot"></span></div>
+    <p class="nav-label">WORKSPACE</p>
+    <nav aria-label="Main navigation">
+      <a href="#opportunities" data-view="opportunities"><span>◎</span> Opportunities <b id="opportunity-count">0</b></a>
+      <a href="#studio" data-view="studio"><span>✎</span> Content studio</a>
+      <a href="#approvals" data-view="approvals"><span>☑</span> Review queue <b id="review-count">0</b></a>
+      <a href="#calendar" data-view="calendar"><span>▦</span> Calendar</a>
+      <a href="#knowledge" data-view="knowledge"><span>▤</span> Project knowledge</a>
+      <a href="#analytics" data-view="analytics"><span>↗</span> Analytics</a>
+      <a href="#system" data-view="system" class="mobile-system"><span>⚙</span> System & audit log</a>
+    </nav>
+    <div class="sidebar-bottom"><div class="guardrail"><span>◉</span><strong>Human in the loop</strong><p>Every post starts with a draft.<br>Every approval is yours.</p></div><a href="#system" data-view="system">⚙ &nbsp; System & audit log</a><span class="version">LOCAL FIRST · v0.1</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="breadcrumb">Workspace</span><span class="separator">/</span><span id="breadcrumb">Opportunities</span></div><div class="top-actions"><span id="mode-badge" class="badge amber">DEMO MODE</span><button id="stop-button" data-action="stop" class="stop-button">■ Emergency stop</button></div></header>
+    <div id="mode-banner" class="mode-banner">Fictional demo data · nothing is connected to X or published.</div>
+    <div id="content" class="content"><p role="status">Loading your workspace…</p></div>
+    <footer>No shortcuts to trust. Build something worth talking about.</footer>
+  </main>
+  <dialog id="editor"><div id="editor-content"></div></dialog>
+  <dialog id="utility"><div id="utility-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
