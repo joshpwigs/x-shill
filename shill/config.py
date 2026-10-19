@@ -63,6 +63,22 @@ class Settings:
         base_url = self.browser.get("base_url", "https://x.com")
         if base_url != "https://x.com" and not self.browser.get("allow_test_site", False):
             raise ValueError("browser.base_url must be https://x.com")
+        if self.browser.get("reply_provider", "template") not in {"template", "ollama"}:
+            raise ValueError("browser.reply_provider must be template or ollama")
+        similarity = float(self.browser.get("similarity_limit", 0.82))
+        if not 0.65 <= similarity <= 0.95:
+            raise ValueError("browser.similarity_limit must be between 0.65 and 0.95")
+        if self.browser.get("reply_provider") == "ollama":
+            u = urlsplit(self.browser.get("ollama_url", "http://127.0.0.1:11434"))
+            if u.scheme != "http" or u.hostname not in {"127.0.0.1", "localhost", "::1"} or u.username or u.query or u.fragment or u.path not in {"", "/"}:
+                raise ValueError("browser.ollama_url must be a local HTTP origin")
+            if not self.browser.get("ollama_model", "").strip():
+                raise ValueError("browser.ollama_model is required for Ollama")
+        blocked = self.browser.get("blocked_accounts", [])
+        if not isinstance(blocked, list) or len(blocked) > 100 or not all(isinstance(v, str) and v.lstrip("@").replace("_", "").isalnum() for v in blocked):
+            raise ValueError("browser.blocked_accounts contains an invalid account")
+        if not 1 <= int(self.browser.get("author_cooldown_days", 14)) <= 365:
+            raise ValueError("browser.author_cooldown_days must be between 1 and 365")
         return self
 
 

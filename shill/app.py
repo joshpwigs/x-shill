@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit, urlencode, parse_qsl, urlunsplit
+from typing import Literal
 import base64
 import hashlib
 import hmac
@@ -15,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import Field
 from .analytics import report
+from .browserbot import BrowserBlocked, BrowserCampaign, BrowserSupervisor
 from .config import load_settings
 from .db import Database, audit, encode
 from .generation import generate, GenerationError
@@ -44,6 +46,23 @@ class TaggedLink(Strict):
     content: str = Field(min_length=1,max_length=100)
 
 
+class BrowserControl(Strict):
+    action: Literal["start", "stop-worker", "pause", "resume", "run-once"]
+
+
+class BrowserItemEdit(Strict):
+    text: str = Field(min_length=1, max_length=1000)
+
+
+class BrowserItemAction(Strict):
+    action: Literal["dismiss", "requeue"]
+
+
+class BrowserFeedback(Strict):
+    value: Literal[-1, 1]
+    note: str = Field(default="", max_length=500)
+
+
 STATIC=Path(__file__).parent/"static"
 
 
@@ -53,15 +72,20 @@ def create_app(settings=None,run_worker=True,testing=False):
     service=Service(db,settings)
     service.initialize()
     scheduler=Scheduler(service)
+    browser_campaign=BrowserCampaign(db,settings) if settings.mode=='browser' else None
+    browser_supervisor=BrowserSupervisor(browser_campaign) if browser_campaign else None
 
     @asynccontextmanager
     async def lifespan(app):
         if run_worker: scheduler.start()
+        if run_worker and browser_supervisor and settings.browser.get('autostart',False): browser_supervisor.start()
         yield
+        if browser_supervisor: browser_supervisor.stop()
         scheduler.close()
 
     app=FastAPI(title="Signal Garden",docs_url=None,redoc_url=None,openapi_url=None,lifespan=lifespan)
     app.state.db,app.state.service,app.state.scheduler=db,service,scheduler
+    app.state.browser_campaign,app.state.browser_supervisor=browser_campaign,browser_supervisor
     hosts=["localhost","127.0.0.1","[::1]"]
     if settings.public_origin: hosts.append(urlsplit(settings.public_origin).hostname)
     if testing: hosts.append("testserver")
@@ -113,6 +137,8 @@ def create_app(settings=None,run_worker=True,testing=False):
     async def conflict(request,exc): return JSONResponse({"detail":str(exc)},409)
     @app.exception_handler(GenerationError)
     async def generation_error(request,exc): return JSONResponse({"detail":str(exc)},400)
+    @app.exception_handler(BrowserBlocked)
+    async def browser_blocked(request,exc): return JSONResponse({"detail":str(exc)},409)
     @app.exception_handler(KeyError)
     async def missing(request,exc): return JSONResponse({"detail":"Record not found"},404)
     @app.exception_handler(sqlite3.IntegrityError)
@@ -135,7 +161,8 @@ def create_app(settings=None,run_worker=True,testing=False):
                 "x":{"status":"browser" if browser_mode else "unavailable","detail":"Local browser campaign is configured separately; no X API key is used." if browser_mode else "No X API requests are made."},
                 "model":{"provider":settings.model.get('provider','template'),"key_present":bool(os.environ.get('MODEL_API_KEY')),"reserved_or_spent_usd":spend,"daily_budget_usd":settings.model.get('daily_budget_usd',0)},
                 "limits":{"daily":settings.daily_post_limit,"gap_minutes":settings.minimum_gap_minutes,"quiet_hours":f"{settings.quiet_start:02}:00–{settings.quiet_end:02}:00"},
-                "worker_running":bool(scheduler.thread and scheduler.thread.is_alive()),"publishing":"simulation only" if settings.mode=='demo' else "local browser campaign + manual originals" if browser_mode else "manual export only"}
+                "worker_running":bool(scheduler.thread and scheduler.thread.is_alive()),"browser_running":bool(browser_supervisor and browser_supervisor.running),
+                "publishing":"simulation only" if settings.mode=='demo' else "local browser campaign + manual originals" if browser_mode else "manual export only"}
 
     @app.get("/api/profile")
     def profile():
@@ -205,6 +232,51 @@ def create_app(settings=None,run_worker=True,testing=False):
 
     @app.post("/api/stop")
     def stop(body:Stop): service.stop(body.stopped); return {"stopped":body.stopped}
+
+    @app.get("/api/browser")
+    def browser_status():
+        if not browser_campaign:
+            return {"configured":False,"mode":settings.mode,"running":False,"recent":[],"counts":{}}
+        return {"configured":True,**browser_campaign.status(),**browser_supervisor.status()}
+
+    @app.post("/api/browser/control")
+    def browser_control(body:BrowserControl):
+        if not browser_campaign: raise Conflict("Set mode = \"browser\" and restart the dashboard first.")
+        if body.action=='start': browser_supervisor.start()
+        elif body.action=='stop-worker': browser_supervisor.stop()
+        elif body.action=='pause': service.stop(True)
+        elif body.action=='resume': service.stop(False)
+        else: browser_supervisor.trigger()
+        return {**browser_campaign.status(),**browser_supervisor.status()}
+
+    @app.get("/api/browser/session-health")
+    def browser_session_health():
+        if not browser_campaign: raise Conflict("Browser mode is not configured.")
+        if browser_supervisor.running: raise Conflict("Stop the browser worker before checking the same browser profile.")
+        return browser_campaign.session.health()
+
+    @app.put("/api/browser/items/{item_id}")
+    def browser_item_edit(item_id:str,body:BrowserItemEdit):
+        if not browser_campaign: raise Conflict("Browser mode is not configured.")
+        return browser_campaign.edit_item(item_id,body.text)
+
+    @app.post("/api/browser/items/{item_id}/action")
+    def browser_item_action(item_id:str,body:BrowserItemAction):
+        if not browser_campaign: raise Conflict("Browser mode is not configured.")
+        return browser_campaign.item_action(item_id,body.action)
+
+    @app.post("/api/browser/items/{item_id}/feedback")
+    def browser_item_feedback(item_id:str,body:BrowserFeedback):
+        if not browser_campaign: raise Conflict("Browser mode is not configured.")
+        return browser_campaign.feedback(item_id,body.value,body.note)
+
+    @app.get("/api/browser/diagnostics/{name}")
+    def browser_diagnostic(name:str):
+        if not browser_campaign or Path(name).name!=name: raise KeyError("Diagnostic not found")
+        directory=Path(settings.browser.get('diagnostics_dir','data/browser-diagnostics')).resolve()
+        path=(directory/name).resolve()
+        if path.parent!=directory or not path.is_file(): raise KeyError("Diagnostic not found")
+        return FileResponse(path,media_type='image/png')
 
     @app.get("/api/audit")
     def audit_log():

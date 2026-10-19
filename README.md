@@ -36,7 +36,7 @@ On **Steam Deck desktop mode**, keep the checkout under your home directory, use
 
 ## Unattended browser campaign (no X API)
 
-This mode discovers recent posts from configured searches and accounts, scores them against the project keywords, and replies from a dedicated local Chromium profile. It sends at most one reply to an author/thread, respects the shared 1–20/day limit, spacing and quiet hours, and stops after an ambiguous send. It does not extract cookies, solve challenges, or retry a click whose outcome is unclear.
+This mode discovers recent posts from configured searches and accounts, scores them using keyword fit, age, engagement velocity, account priority and your saved outcome feedback, and replies from a dedicated local Chromium profile. It sends once per thread, applies a configurable author cooldown, avoids recent wording repetition, respects the shared 1–20/day limit, spacing and quiet hours, and stops after an ambiguous send. It does not extract cookies, solve challenges, or retry a click whose outcome is unclear.
 
 1. Complete the real project profile in the dashboard first. The profile must be non-fictional and have an official link, disclosure, keywords, and at least one current verified fact.
 2. Stop the dashboard and edit `config.toml`: set `mode = "browser"`, choose your daily limit and spacing, and edit `[browser]` searches/accounts. Keep `dry_run = true` initially.
@@ -55,13 +55,25 @@ This mode discovers recent posts from configured searches and accounts, scores t
    sh scripts/run.sh browser-status
    ```
 
-5. Read the preview in `browser-status`. When the identity, searches, verified facts, disclosure and wording are correct, set `dry_run = false`. Start the unattended loop with:
+5. Open **Browser campaign** in the dashboard to inspect, edit, dismiss, requeue, pause, run, and score replies. Failure screenshots stay in the ignored local diagnostics directory. Read the previews carefully. When the identity, searches, verified facts, disclosure and wording are correct, set `dry_run = false` and restart. Start the worker from the dashboard, or use:
 
    ```sh
    sh scripts/run.sh browser-run
    ```
 
 Run it inside `tmux`, a Distrobox service, or another process supervisor if it must survive closing a terminal. The browser profile is intentionally dedicated to this project account. If X asks for login, CAPTCHA, identity verification, or account recovery, run `browser-login` and complete it yourself. Selector changes can break browser automation; a confirmed Post click without a confirmation toast is recorded as `uncertain` and turns on the dashboard emergency stop.
+
+For contextual local writing, run Ollama separately, pull a model that fits your machine, and configure:
+
+```toml
+[browser]
+reply_provider = "ollama"
+ollama_url = "http://127.0.0.1:11434"
+ollama_model = "qwen3:4b"
+template_fallback = true
+```
+
+The Ollama endpoint is restricted to loopback. Generated replies are rejected unless they quote a current verified fact verbatim, include an official link and exact disclosure, fit within 280 weighted characters, avoid recent wording, and pass the campaign content checks. With `template_fallback = true`, a local model failure uses the offline varied templates.
 
 X currently says scripting its website and automated keyword-based replies can lead to suspension. Browser mode therefore carries account risk even at low volume. The implementation has no challenge bypass, proxy rotation, multi-account support, or automatic retry after an uncertain send.
 
@@ -105,7 +117,7 @@ Use SQLite's backup API rather than copying only the main file while WAL writes 
 
 Back up `config.toml` separately and protect credential storage separately. The app refuses to overwrite an existing backup. To restore, stop the service, retain the current database/WAL/SHM files as an archive, place the backup at a **new** path, point `database` there, run `check`, then restart. Pending jobs resume; expired in-flight sends become uncertain. Confirm uncertain results before taking any further action. Test a restore periodically and restrict backup access.
 
-Before updating: stop the service, create a backup, preserve local changes, inspect the incoming diff/release notes, then update the checkout and run `sh scripts/install.sh` plus the tests. Do not reset a modified checkout. Configuration is never overwritten by installation. Current schema is version 2; future schema changes must provide explicit migrations. Deployment is not performed by this task.
+Before updating: stop the service, create a backup, preserve local changes, inspect the incoming diff/release notes, then update the checkout and run `sh scripts/install.sh` plus the tests. Do not reset a modified checkout. Configuration is never overwritten by installation. Current schema is version 3; future schema changes must provide explicit migrations. Deployment is not performed by this task.
 
 ## Small VPS
 

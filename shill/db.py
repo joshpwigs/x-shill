@@ -59,11 +59,22 @@ class Database:
                 thread_id TEXT NOT NULL, body TEXT NOT NULL, score INTEGER NOT NULL,
                 state TEXT NOT NULL, draft_text TEXT, discovered_at REAL NOT NULL,
                 attempted_at REAL, receipt TEXT, error TEXT);
+            CREATE TABLE IF NOT EXISTS browser_feedback(
+                item_id TEXT PRIMARY KEY REFERENCES browser_queue(id),
+                value INTEGER NOT NULL CHECK(value IN (-1,1)), note TEXT NOT NULL DEFAULT '', at REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state,due_at);
             CREATE INDEX IF NOT EXISTS metrics_draft ON metrics(draft_id,captured_at);
             CREATE INDEX IF NOT EXISTS browser_queue_state ON browser_queue(state,score,discovered_at);
             INSERT OR IGNORE INTO schema_version VALUES(2);
             """)
+            columns = {row[1] for row in c.execute("PRAGMA table_info(browser_queue)")}
+            for name, definition in {
+                "ranking": "TEXT", "generator": "TEXT", "style": "TEXT",
+                "diagnostic": "TEXT", "updated_at": "REAL"
+            }.items():
+                if name not in columns:
+                    c.execute(f"ALTER TABLE browser_queue ADD COLUMN {name} {definition}")
+            c.execute("INSERT OR IGNORE INTO schema_version VALUES(3)")
         os.chmod(self.path, 0o600)
 
     @contextmanager

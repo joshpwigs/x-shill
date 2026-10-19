@@ -128,3 +128,41 @@ def test_manual_workflow_and_measurement_recording(tmp_path):
         a=c.get('/api/analytics').json()
         assert a['totals']['impressions']['total']==0 and a['totals']['clicks']['total'] is None
         assert c.post('/api/demo/analytics',json={}).status_code==409
+
+
+def test_browser_campaign_dashboard_queue_controls(tmp_path):
+    settings=Settings(mode='browser',database=str(tmp_path/'browser-api.sqlite3'),quiet_start=0,quiet_end=0,
+                      browser={'dry_run':True,'search_queries':['Cronos'],'watch_accounts':[],'minimum_score':20})
+    app=create_app(settings,run_worker=False,testing=True)
+    with TestClient(app) as c:
+        class EmptySession:
+            def discover(self): return []
+            def health(self): return {'ok':True,'state':'ready'}
+            def reply(self,url,text,dry_run=True): return {'outcome':'dry_run'}
+        app.state.browser_campaign.session=EmptySession()
+        profile=c.get('/api/profile').json()
+        profile['profile'].update(name='Cro Test',account='CroTest',chain='Cronos',fictional=False,
+            official_links=['https://example.com/project'],keywords=['Cronos'],disclosure='Project team',
+            facts=[{'id':'guide','text':'Cro Test publishes an open project guide.','classification':'verified',
+                    'source':'https://example.com/source','verified_at':time.time(),'stale_after_days':30}])
+        assert c.put('/api/profile',json={'profile':profile['profile'],'version':profile['version']}).status_code==200
+        app.state.browser_campaign._import([{'id':'x_700','author':'Writer','text':'What should Cronos projects explain?',
+            'url':'https://x.com/Writer/status/700','posted_at':time.time(),'thread_id':'700','context':'public post',
+            'inbound':False,'replies':5,'likes':9,'fictional':False}])
+        status=c.get('/api/browser').json()
+        assert status['configured'] and status['counts']['queued']==1
+        text='For this Cronos question: Cro Test publishes an open project guide. https://example.com/project\n\nProject team'
+        assert c.put('/api/browser/items/x_700',json={'text':text}).status_code==200
+        assert c.post('/api/browser/items/x_700/action',json={'action':'dismiss'}).status_code==200
+        assert c.post('/api/browser/items/x_700/action',json={'action':'requeue'}).status_code==200
+        assert c.post('/api/browser/control',json={'action':'pause'}).json()['stopped'] is True
+        assert c.post('/api/browser/control',json={'action':'resume'}).json()['stopped'] is False
+        assert c.post('/api/browser/control',json={'action':'run-once'}).status_code==200
+        for _ in range(100):
+            if not app.state.browser_supervisor.running: break
+            time.sleep(.01)
+        assert c.get('/api/browser').json()['last_run'] is not None
+        with app.state.db.connect(write=True) as db:
+            db.execute("UPDATE browser_queue SET state='sent' WHERE id='x_700'")
+        result=c.post('/api/browser/items/x_700/feedback',json={'value':1,'note':'Useful discussion'})
+        assert result.status_code==200 and result.json()['recent'][0]['feedback']==1

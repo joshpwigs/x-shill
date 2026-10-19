@@ -1,7 +1,8 @@
 import time
 import pytest
 
-from shill.browserbot import BrowserCampaign, BrowserUncertain, compose_reply
+from shill.browserbot import BrowserCampaign, BrowserUncertain, compose_reply, rank_browser_opportunity
+from shill.browser_generation import ollama_reply, template_reply
 from shill.config import Settings
 from shill.db import Database
 from shill.service import Service
@@ -99,3 +100,52 @@ def test_uncertain_click_stops_campaign(tmp_path):
     status = bot.status()
     assert status["stopped"] is True
     assert status["counts"]["uncertain"] == 1
+
+
+def test_contextual_templates_avoid_recent_wording(tmp_path):
+    bot, _ = campaign(tmp_path)
+    with bot.db.connect() as c:
+        from shill.service import get_profile
+        profile, _ = get_profile(c)
+    first = template_reply(profile, opportunity(), variant=0)
+    second = template_reply(profile, opportunity(), variant=0, recent=[first["text"]])
+    assert second["text"] != first["text"]
+    assert second["source_id"] == "utility"
+
+
+def test_browser_ranking_requires_project_keyword_and_uses_feedback(tmp_path):
+    bot, _ = campaign(tmp_path)
+    with bot.db.connect(write=True) as c:
+        from shill.service import get_profile
+        profile, _ = get_profile(c)
+        unrelated = opportunity("200", "AnotherWriter")
+        unrelated["text"] = "Which chart setup looks best today?"
+        assert rank_browser_opportunity(c, unrelated, profile, bot.settings.browser)["appropriate"] is False
+        relevant = opportunity("201", "AnotherWriter")
+        assert rank_browser_opportunity(c, relevant, profile, bot.settings.browser)["appropriate"] is True
+        c.execute("INSERT INTO browser_queue(id,author,url,thread_id,body,score,state,discovered_at) VALUES('old','FeedbackWriter','https://x.com/FeedbackWriter/status/1','1','{}',50,'sent',?)", (time.time()-20*86400,))
+        c.execute("INSERT INTO browser_feedback(item_id,value,note,at) VALUES('old',1,'useful',?)", (time.time(),))
+        rewarded = rank_browser_opportunity(c, opportunity("202", "FeedbackWriter"), profile, bot.settings.browser)
+        neutral = rank_browser_opportunity(c, opportunity("203", "NeutralWriter"), profile, bot.settings.browser)
+        assert rewarded["score"] > neutral["score"]
+
+
+def test_ollama_reply_is_validated_against_verified_facts(tmp_path, monkeypatch):
+    bot, _ = campaign(tmp_path)
+    bot.settings.browser.update(reply_provider="ollama", ollama_model="local-test", ollama_url="http://127.0.0.1:11434")
+    with bot.db.connect() as c:
+        from shill.service import get_profile
+        profile, _ = get_profile(c)
+    text = "For the Cronos question: Cro Test publishes an open project guide. https://example.com/project\n\nProject team"
+    class Response:
+        def raise_for_status(self): pass
+        def json(self): return {"message": {"content": __import__('json').dumps({"text": text, "source_id": "utility", "style": "answer"})}}
+    class Client:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def post(self, *args, **kwargs): return Response()
+    monkeypatch.setattr("shill.browser_generation.httpx.Client", Client)
+    result = ollama_reply(bot.settings, profile, opportunity())
+    assert result["provider"] == "ollama"
+    assert result["source_id"] == "utility"

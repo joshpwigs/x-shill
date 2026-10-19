@@ -7,7 +7,7 @@ Single-process Python 3.12+ / FastAPI service; standard HTML, CSS and JavaScript
 | `schemas.py`, `service.py`, `policy.py` | Project facts, immutable research context, drafts, exact-content approval, review checks and manual exports |
 | `generation.py` | Three offline alternatives per format/tone; optional guarded model provider |
 | `publishing.py` | Durable fictional remote and deliberately unavailable X publisher |
-| `browserbot.py` | Dedicated-profile Chromium discovery, reply composition, UI posting, deduplication and uncertain-send stop |
+| `browserbot.py`, `browser_generation.py` | Dedicated-profile Chromium discovery, contextual/template reply composition, campaign supervision, UI posting, feedback ranking, diagnostics and uncertain-send stop |
 | `scheduler.py` | Durable due jobs, serialized claims, quiet hours, rate/spacing limits, rejection backoff, uncertain-outcome quarantine |
 | `analytics.py` | Metric availability, 24–48-hour snapshot comparisons, descriptive weekly reports |
 | `app.py`, `static/` | Authenticated API when configured, same-origin dashboard, escaped untrusted data |
@@ -60,4 +60,4 @@ Loopback is the default. Remote binding requires a 16+ character `DASHBOARD_PASS
 
 Configuration and SQLite contain project content, not provider credentials. Credentials come only from process environment. Exception responses and audit events omit provider responses and credentials. The audit log is durable, but not tamper-evident against a user who can edit the SQLite file. Protect/encrypt backups and restrict filesystem permissions. Deleting a workspace or backup requires explicit operator action; no retention purge runs silently.
 
-This is a tested local application, not an independently security-audited service. Browser selectors were tested against a simulated site and can break when X changes its UI. Future schema changes require migrations and fresh backup/recovery tests; current schema version is 2.
+This is a tested local application, not an independently security-audited service. Browser selectors were tested against a simulated site and can break when X changes its UI. Future schema changes require migrations and fresh backup/recovery tests; current schema version is 3.

@@ -44,7 +44,7 @@ async function main(){
   await page.waitForFunction(()=>document.querySelector('#editor-content')?.textContent.includes('VERSION 2'));
   assert.equal(await page.getByRole('button',{name:'Export',exact:true}).isDisabled(),true);
   await page.locator('#editor [data-action="close-editor"]').click();
-  for(const [name,heading] of [['Review queue','Good judgment is part of the process.'],['Calendar','A little consistency goes a long way.'],['Project knowledge','Keep the facts close.'],['Analytics','Learn from the conversation.'],['System & audit log','A clear view behind the scenes.']]){
+  for(const [name,heading] of [['Review queue','Good judgment is part of the process.'],['Calendar','A little consistency goes a long way.'],['Project knowledge','Keep the facts close.'],['Browser campaign','Run a focused browser campaign.'],['Analytics','Learn from the conversation.'],['System & audit log','A clear view behind the scenes.']]){
     await page.getByRole('link',{name,exact:false}).click();
     await page.getByRole('heading',{name:heading}).waitFor();
   }
