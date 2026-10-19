@@ -75,6 +75,18 @@ def template_reply(profile, opportunity, variant=0, recent=(), similarity_limit=
         ("concise", "A {topic} project to include in the research: {name}. {fact} {link}\n\n{disclosure}"),
         ("community", "The {topic} community may find this relevant: {fact} More on {name}: {link}\n\n{disclosure}"),
         ("direct", "Adding a {topic} reference: {name}. {fact} Official details: {link}\n\n{disclosure}"),
+        ("research", "If you're researching {topic}, one verified detail about {name}: {fact} {link}\n\n{disclosure}"),
+        ("worth-noting", "Worth noting in this {topic} conversation: {fact} {name}: {link}\n\n{disclosure}"),
+        ("resource", "A resource for the {topic} discussion: {name}. {fact} {link}\n\n{disclosure}"),
+        ("addition", "One more {topic} project for the comparison: {name}. {fact} {link}\n\n{disclosure}"),
+        ("reference", "For a concrete {topic} reference, look at {name}: {fact} {link}\n\n{disclosure}"),
+        ("context", "Some added {topic} context from {name}: {fact} {link}\n\n{disclosure}"),
+        ("starting-point", "A starting point for researching this {topic} angle: {name}. {fact} {link}\n\n{disclosure}"),
+        ("open-question", "Where does {name} fit in this {topic} comparison? {fact} {link}\n\n{disclosure}"),
+        ("fact-first", "{fact} That makes {name} relevant to this {topic} discussion: {link}\n\n{disclosure}"),
+        ("learn-more", "For readers learning about {topic}: {fact} Learn about {name}: {link}\n\n{disclosure}"),
+        ("project-note", "A project note for this {topic} thread: {fact} {name}: {link}\n\n{disclosure}"),
+        ("comparison-point", "A comparison point from the {topic} ecosystem: {fact} {name}: {link}\n\n{disclosure}"),
     ]
     if not question:
         templates = templates[1:] + templates[:1]

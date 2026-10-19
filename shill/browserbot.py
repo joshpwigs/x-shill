@@ -407,6 +407,37 @@ class BrowserCampaign:
             audit(c, "browser.sent", {"item_id": row["id"], "receipt": result["receipt"]})
         return {"state": "sent", "target": row["url"], "receipt": result["receipt"], "queued": added}
 
+    def preview_batch(self, limit=None):
+        if self.settings.mode != "browser":
+            raise BrowserBlocked("Set mode = \"browser\" first.")
+        limit = max(1, min(20, int(limit or self.settings.browser.get("preview_batch_size", 10))))
+        items = self.session.discover()
+        added = self._import(items)
+        with self.db.connect() as c:
+            profile, _ = get_profile(c)
+            rows = c.execute("SELECT * FROM browser_queue WHERE state='queued' ORDER BY score DESC,discovered_at LIMIT ?", (limit,)).fetchall()
+            recent = [r[0] for r in c.execute("SELECT draft_text FROM browser_queue WHERE draft_text IS NOT NULL AND state IN ('previewed','sent') ORDER BY COALESCE(updated_at,discovered_at) DESC LIMIT 20")]
+        previews, failed = [], 0
+        for row in rows:
+            opportunity = json.loads(row["body"])
+            variant = int(hashlib.sha256(row["id"].encode()).hexdigest()[:8], 16)
+            try:
+                generated = compose(self.settings, profile, opportunity, variant, recent)
+            except CompositionError as exc:
+                failed += 1
+                with self.db.connect(write=True) as c:
+                    c.execute("UPDATE browser_queue SET state='failed',error=?,updated_at=? WHERE id=?", (str(exc), time.time(), row["id"]))
+                continue
+            text = generated["text"]
+            with self.db.connect(write=True) as c:
+                changed = c.execute("UPDATE browser_queue SET state='previewed',draft_text=?,generator=?,style=?,error=NULL,updated_at=? WHERE id=? AND state='queued'",
+                                    (text, generated["provider"], generated["style"], time.time(), row["id"]))
+                if changed.rowcount:
+                    audit(c, "browser.batch_previewed", {"item_id": row["id"], "provider": generated["provider"]})
+                    previews.append({"id": row["id"], "author": row["author"], "url": row["url"], "text": text})
+                    recent.append(text)
+        return {"state": "batch_previewed", "discovered": len(items), "queued": added, "previewed": len(previews), "failed": failed, "items": previews}
+
     def status(self):
         with self.db.connect() as c:
             counts = {r["state"]: r["n"] for r in c.execute("SELECT state,COUNT(*) n FROM browser_queue GROUP BY state")}
@@ -509,6 +540,13 @@ class BrowserSupervisor:
             self.thread = threading.Thread(target=self._execute, name="browser-campaign-once", daemon=True)
             self.thread.start()
 
+    def trigger_batch(self, limit):
+        with self.lock:
+            if self.running:
+                raise BrowserBlocked("A browser campaign operation is already running.")
+            self.thread = threading.Thread(target=self._execute, args=(lambda: self.campaign.preview_batch(limit),), name="browser-batch-preview", daemon=True)
+            self.thread.start()
+
     def stop(self):
         self.halt.set()
         self.wake.set()
@@ -524,9 +562,9 @@ class BrowserSupervisor:
                 return
             self.wake.wait(interval)
 
-    def _execute(self):
+    def _execute(self, operation=None):
         try:
-            self.last_result = self.campaign.run_once()
+            self.last_result = (operation or self.campaign.run_once)()
             self.last_error = ""
         except (BrowserBlocked, BrowserUncertain) as exc:
             self.last_result = {"state": "blocked" if isinstance(exc, BrowserBlocked) else "uncertain"}

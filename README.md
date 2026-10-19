@@ -14,11 +14,13 @@ sh scripts/install.sh
 sh scripts/run.sh
 ```
 
-On your own machine, open the dashboard at loopback port **8787**. The cloud onboarding UI does not expose a web preview. `config.toml` is created only if absent; it is ignored by Git. The default database is `data/x-shill.sqlite3`. Stop the process with Ctrl+C. Restart with the same command; jobs and approvals persist.
+On your own machine, open the dashboard at loopback port **8787**. The cloud onboarding UI does not expose a web preview. `config.toml` is created only if absent; it is ignored by Git. The default database is `data/x-shill.sqlite3`. A fresh install opens a guided Cronos campaign setup in safe dry-run mode. The built-in writer works without Ollama. Stop the process with Ctrl+C. Restart with the same command; settings, queue items, and approvals persist.
 
 On **Steam Deck desktop mode**, keep the checkout under your home directory, use the same commands, and check `python3 --version` first. If Python/venv is unavailable, use an existing Distrobox installation with an Ubuntu 24.04 container and install `python3 python3-venv` inside it. Run the commands inside that container; publish/forward the loopback port if your container setup requires it. Do not disable SteamOS's read-only system to install this app. Linux/Python 3.12 was tested here; physical Steam Deck hardware was not available.
 
 ## Try the complete demo
+
+To use the fictional demo, stop the app, set `mode = "demo"` and a separate database such as `data/demo.sqlite3` in `config.toml`, then restart.
 
 1. Open **Opportunities**: fictional conversations are ranked; sensitive/unrelated ones are excluded. Read the original-context warning before suggesting a reply.
 2. In **Content studio**, choose a format, tone and topic, then generate three offline options. The editable project is fictional Moon Garden; all sample facts/links are fictional.
@@ -38,8 +40,8 @@ On **Steam Deck desktop mode**, keep the checkout under your home directory, use
 
 This mode discovers recent posts from configured searches and accounts, scores them using keyword fit, age, engagement velocity, account priority and your saved outcome feedback, and replies from a dedicated local Chromium profile. It sends once per thread, applies a configurable author cooldown, avoids recent wording repetition, respects the shared 1–20/day limit, spacing and quiet hours, and stops after an ambiguous send. It does not extract cookies, solve challenges, or retry a click whose outcome is unclear.
 
-1. Complete the real project profile in the dashboard first. The profile must be non-fictional and have an official link, disclosure, keywords, and at least one current verified fact.
-2. Stop the dashboard and edit `config.toml`: set `mode = "browser"`, choose your daily limit and spacing, and edit `[browser]` searches/accounts. Keep `dry_run = true` initially.
+1. Start the dashboard and complete the setup wizard. Enter the real project identity, official links, disclosure, relevance keywords, and at least one current verified fact with its official HTTPS source. The wizard preloads editable Cronos core, ecosystem, exchange, and media accounts plus Cronos searches. Verify the handles in X because accounts can change.
+2. Keep **Dry run** enabled. The dashboard stores campaign pace and targets in SQLite, so routine changes do not require editing TOML. Open **Browser campaign → Configure** whenever you want to update them.
 3. Install the dedicated browser and log in yourself:
 
    ```sh
@@ -48,14 +50,14 @@ This mode discovers recent posts from configured searches and accounts, scores t
    ```
 
    X credentials stay in the local browser profile under `data/x-browser-profile`; that directory is ignored by Git.
-4. Exercise one complete discovery/composition pass without posting:
+4. In **Browser campaign**, click **Preview next batch** to discover and draft up to the configured batch size without opening an X reply composer or clicking Post. Inspect, edit, dismiss, or requeue every result. To test one complete browser-composer pass without clicking Post, use:
 
    ```sh
    sh scripts/run.sh browser-once
    sh scripts/run.sh browser-status
    ```
 
-5. Open **Browser campaign** in the dashboard to inspect, edit, dismiss, requeue, pause, run, and score replies. Failure screenshots stay in the ignored local diagnostics directory. Read the previews carefully. When the identity, searches, verified facts, disclosure and wording are correct, set `dry_run = false` and restart. Start the worker from the dashboard, or use:
+5. Failure screenshots stay in the ignored local diagnostics directory. When the identity, searches, verified facts, disclosure and wording are correct, turn off **Dry run** in **Configure**. Start the worker from the dashboard, or use:
 
    ```sh
    sh scripts/run.sh browser-run
@@ -79,7 +81,7 @@ X currently says scripting its website and automated keyword-based replies can l
 
 ## Configuration and credentials
 
-See [`config.example.toml`](config.example.toml). Limits are bounded and explicit: three attempts per rolling 24 hours, three-hour spacing, 22:00–08:00 America/Chicago quiet hours by default. Equal quiet-start/end disables quiet hours. Retry attempts also count conservatively against limits. No learning process changes these settings.
+See [`config.example.toml`](config.example.toml). Fresh browser campaigns default to ten attempts per rolling 24 hours, one-hour spacing, 22:00–08:00 America/Chicago quiet hours, and dry run. The dashboard bounds campaign settings to 1–20 posts per day. Equal quiet-start/end disables quiet hours. Retry attempts also count conservatively against limits. No learning process changes these settings.
 
 | Workflow | Credential / verified external API cost |
 | --- | --- |
@@ -117,7 +119,7 @@ Use SQLite's backup API rather than copying only the main file while WAL writes 
 
 Back up `config.toml` separately and protect credential storage separately. The app refuses to overwrite an existing backup. To restore, stop the service, retain the current database/WAL/SHM files as an archive, place the backup at a **new** path, point `database` there, run `check`, then restart. Pending jobs resume; expired in-flight sends become uncertain. Confirm uncertain results before taking any further action. Test a restore periodically and restrict backup access.
 
-Before updating: stop the service, create a backup, preserve local changes, inspect the incoming diff/release notes, then update the checkout and run `sh scripts/install.sh` plus the tests. Do not reset a modified checkout. Configuration is never overwritten by installation. Current schema is version 3; future schema changes must provide explicit migrations. Deployment is not performed by this task.
+Before updating: stop the service, create a backup, preserve local changes, inspect the incoming diff/release notes, then update the checkout and run `sh scripts/install.sh` plus the tests. Do not reset a modified checkout. Configuration is never overwritten by installation. Current schema is version 4; future schema changes must provide explicit migrations. Deployment is not performed by this task.
 
 ## Small VPS
 

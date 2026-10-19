@@ -1,13 +1,13 @@
 # Copy to config.toml. Secrets belong in process environment, never this file.
-mode = "demo" # demo, manual, or browser
+mode = "browser" # fresh installs open the setup wizard in safe dry-run mode
 database = "data/x-shill.sqlite3"
 host = "127.0.0.1"
 port = 8787
 # For remote use, set a strong DASHBOARD_PASSWORD and this HTTPS origin.
 public_origin = ""
 timezone = "America/Chicago"
-daily_post_limit = 3
-minimum_gap_minutes = 180
+daily_post_limit = 10
+minimum_gap_minutes = 60
 quiet_start = 22
 quiet_end = 8
 max_attempts = 4
@@ -39,6 +39,7 @@ minimum_score = 35
 discovery_limit = 30
 per_source_limit = 10
 discovery_scrolls = 1
+preview_batch_size = 10
 require_keyword_match = true
 blocked_accounts = []
 author_cooldown_days = 14

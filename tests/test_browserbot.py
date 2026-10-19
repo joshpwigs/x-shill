@@ -81,6 +81,18 @@ def test_dry_run_previews_without_counting_attempt(tmp_path):
         assert c.execute("SELECT COUNT(*) FROM attempts").fetchone()[0] == 0
 
 
+def test_batch_preview_creates_editable_replies_without_opening_composer(tmp_path):
+    bot, fake = campaign(tmp_path, dry_run=True)
+    result = bot.preview_batch(10)
+    assert result["state"] == "batch_previewed"
+    assert result["previewed"] == 1
+    assert fake.calls == []
+    with bot.db.connect() as c:
+        row = c.execute("SELECT state,draft_text FROM browser_queue WHERE id='x_100'").fetchone()
+        assert row["state"] == "previewed"
+        assert "Cro Test publishes an open project guide." in row["draft_text"]
+
+
 def test_live_run_sends_once_and_deduplicates_author(tmp_path):
     bot, fake = campaign(tmp_path, dry_run=False)
     assert bot.run_once()["state"] == "sent"

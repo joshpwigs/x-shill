@@ -62,6 +62,9 @@ class Database:
             CREATE TABLE IF NOT EXISTS browser_feedback(
                 item_id TEXT PRIMARY KEY REFERENCES browser_queue(id),
                 value INTEGER NOT NULL CHECK(value IN (-1,1)), note TEXT NOT NULL DEFAULT '', at REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS campaign_config(
+                id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, body TEXT NOT NULL,
+                onboarding_complete INTEGER NOT NULL DEFAULT 0, updated_at REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state,due_at);
             CREATE INDEX IF NOT EXISTS metrics_draft ON metrics(draft_id,captured_at);
             CREATE INDEX IF NOT EXISTS browser_queue_state ON browser_queue(state,score,discovered_at);
@@ -75,6 +78,7 @@ class Database:
                 if name not in columns:
                     c.execute(f"ALTER TABLE browser_queue ADD COLUMN {name} {definition}")
             c.execute("INSERT OR IGNORE INTO schema_version VALUES(3)")
+            c.execute("INSERT OR IGNORE INTO schema_version VALUES(4)")
         os.chmod(self.path, 0o600)
 
     @contextmanager

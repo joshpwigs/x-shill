@@ -52,6 +52,7 @@ class Service:
             c.execute("UPDATE profile SET body=?,version=version+1 WHERE id=1", (encode(profile),))
             c.execute("UPDATE drafts SET status='draft',approval_hash=NULL,profile_version=NULL,revision=revision+1,updated_at=? WHERE status IN ('approved','scheduled','ready','failed')", (time.time(),))
             c.execute("DELETE FROM jobs WHERE state IN ('pending','ready','failed')")
+            c.execute("DELETE FROM browser_queue WHERE state IN ('queued','previewed','failed','dismissed')")
             audit(c,"profile.updated",{"version":version+1,"approvals_invalidated":True})
         return self.profile()
 

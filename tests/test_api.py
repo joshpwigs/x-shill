@@ -140,6 +140,19 @@ def test_browser_campaign_dashboard_queue_controls(tmp_path):
             def health(self): return {'ok':True,'state':'ready'}
             def reply(self,url,text,dry_run=True): return {'outcome':'dry_run'}
         app.state.browser_campaign.session=EmptySession()
+        campaign_settings=c.get('/api/campaign-settings').json()
+        assert campaign_settings['onboarding_complete'] is False
+        assert any(group['id']=='core' for group in campaign_settings['target_pack']['groups'])
+        campaign_settings['browser']['preview_batch_size']=12
+        saved=c.put('/api/campaign-settings',json={'version':campaign_settings['version'],'browser':campaign_settings['browser'],
+            'limits':campaign_settings['limits'],'onboarding_complete':True})
+        assert saved.status_code==200
+        assert saved.json()['onboarding_complete'] is True
+        assert saved.json()['browser']['preview_batch_size']==12
+        campaign_settings['browser']['preview_batch_size']=15
+        assert c.put('/api/campaign-settings',json={'version':campaign_settings['version'],'browser':campaign_settings['browser'],
+            'limits':campaign_settings['limits'],'onboarding_complete':True}).status_code==409
+        assert c.get('/api/campaign-settings').json()['browser']['preview_batch_size']==12
         profile=c.get('/api/profile').json()
         profile['profile'].update(name='Cro Test',account='CroTest',chain='Cronos',fictional=False,
             official_links=['https://example.com/project'],keywords=['Cronos'],disclosure='Project team',

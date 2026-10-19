@@ -14,9 +14,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import Field
+from pydantic import Field, field_validator
 from .analytics import report
 from .browserbot import BrowserBlocked, BrowserCampaign, BrowserSupervisor
+from .campaign_settings import get as get_campaign_settings, initialize as initialize_campaign_settings, load as load_campaign_settings, save as save_campaign_settings
 from .config import load_settings
 from .db import Database, audit, encode
 from .generation import generate, GenerationError
@@ -63,14 +64,69 @@ class BrowserFeedback(Strict):
     note: str = Field(default="", max_length=500)
 
 
+class BatchPreview(Strict):
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+class EditableBrowserSettings(Strict):
+    dry_run: bool = True
+    search_queries: list[str] = Field(default_factory=list, max_length=30)
+    watch_accounts: list[str] = Field(default_factory=list, max_length=50)
+    blocked_accounts: list[str] = Field(default_factory=list, max_length=100)
+    minimum_score: int = Field(default=35, ge=0, le=100)
+    require_keyword_match: bool = True
+    author_cooldown_days: int = Field(default=14, ge=1, le=365)
+    discovery_limit: int = Field(default=30, ge=1, le=100)
+    per_source_limit: int = Field(default=10, ge=1, le=30)
+    discovery_scrolls: int = Field(default=1, ge=0, le=4)
+    poll_minutes: int = Field(default=20, ge=5, le=1440)
+    similarity_limit: float = Field(default=.82, ge=.65, le=.95)
+    reply_provider: Literal["template", "ollama"] = "template"
+    template_fallback: bool = True
+    ollama_url: str = Field(default="http://127.0.0.1:11434", max_length=200)
+    ollama_model: str = Field(default="", max_length=100)
+    ollama_timeout_seconds: int = Field(default=60, ge=5, le=300)
+    autostart: bool = False
+    preview_batch_size: int = Field(default=10, ge=1, le=20)
+
+    @field_validator("search_queries")
+    @classmethod
+    def queries(cls, values):
+        if not all(isinstance(value,str) and 0 < len(value) <= 120 for value in values): raise ValueError("Search queries must be 1–120 characters")
+        return values
+
+    @field_validator("watch_accounts", "blocked_accounts")
+    @classmethod
+    def accounts(cls, values):
+        if not all(value.lstrip('@').replace('_','').isalnum() and len(value.lstrip('@')) <= 15 for value in values): raise ValueError("Invalid X account")
+        return [value.lstrip('@') for value in values]
+
+
+class EditableLimits(Strict):
+    daily_post_limit: int = Field(default=10, ge=1, le=20)
+    minimum_gap_minutes: int = Field(default=60, ge=1, le=1440)
+    quiet_start: int = Field(default=22, ge=0, le=23)
+    quiet_end: int = Field(default=8, ge=0, le=23)
+    timezone: str = Field(default="America/Chicago", max_length=100)
+
+
+class CampaignSettingsUpdate(Strict):
+    version: int = Field(ge=1)
+    browser: EditableBrowserSettings
+    limits: EditableLimits
+    onboarding_complete: bool = True
+
+
 STATIC=Path(__file__).parent/"static"
 
 
 def create_app(settings=None,run_worker=True,testing=False):
     settings=(settings or load_settings()).validate()
     db=Database(settings.database)
+    load_campaign_settings(db,settings)
     service=Service(db,settings)
     service.initialize()
+    initialize_campaign_settings(db,settings,service.profile()['profile'])
     scheduler=Scheduler(service)
     browser_campaign=BrowserCampaign(db,settings) if settings.mode=='browser' else None
     browser_supervisor=BrowserSupervisor(browser_campaign) if browser_campaign else None
@@ -233,6 +289,16 @@ def create_app(settings=None,run_worker=True,testing=False):
     @app.post("/api/stop")
     def stop(body:Stop): service.stop(body.stopped); return {"stopped":body.stopped}
 
+    @app.get("/api/campaign-settings")
+    def campaign_settings(): return get_campaign_settings(db,settings)
+
+    @app.put("/api/campaign-settings")
+    def campaign_settings_update(body:CampaignSettingsUpdate):
+        try:
+            return save_campaign_settings(db,settings,{"browser":body.browser.model_dump(),"limits":body.limits.model_dump()},body.version,body.onboarding_complete)
+        except ValueError as exc:
+            raise Conflict(str(exc)) from exc
+
     @app.get("/api/browser")
     def browser_status():
         if not browser_campaign:
@@ -254,6 +320,12 @@ def create_app(settings=None,run_worker=True,testing=False):
         if not browser_campaign: raise Conflict("Browser mode is not configured.")
         if browser_supervisor.running: raise Conflict("Stop the browser worker before checking the same browser profile.")
         return browser_campaign.session.health()
+
+    @app.post("/api/browser/preview-batch")
+    def browser_preview_batch(body:BatchPreview):
+        if not browser_campaign: raise Conflict("Browser mode is not configured.")
+        browser_supervisor.trigger_batch(body.limit)
+        return {**browser_campaign.status(),**browser_supervisor.status()}
 
     @app.put("/api/browser/items/{item_id}")
     def browser_item_edit(item_id:str,body:BrowserItemEdit):
