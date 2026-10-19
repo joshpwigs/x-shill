@@ -1,5 +1,5 @@
 # Copy to config.toml. Secrets belong in process environment, never this file.
-mode = "demo" # demo or manual; live X integration is intentionally unavailable
+mode = "demo" # demo, manual, or browser
 database = "data/x-shill.sqlite3"
 host = "127.0.0.1"
 port = 8787
@@ -24,3 +24,16 @@ input_usd_per_million = 0.0
 output_usd_per_million = 0.0
 max_output_tokens = 1800
 # Paid mode reads MODEL_API_KEY. No credentials are sent in demo/template mode.
+
+[browser]
+# Browser mode uses a dedicated local Chromium profile. Run browser-login once.
+# Start with dry_run=true; it discovers and drafts without clicking Post.
+dry_run = true
+headless = true
+profile_dir = "data/x-browser-profile"
+base_url = "https://x.com"
+search_queries = ["Cronos crypto", "Cronos chain", "#CROFam"]
+watch_accounts = ["cronos_chain", "cryptocom"]
+poll_minutes = 20
+minimum_score = 35
+discovery_limit = 30

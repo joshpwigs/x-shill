@@ -23,10 +23,11 @@ class Settings:
     worker_interval_seconds: int = 5
     max_schedule_days: int = 90
     model: dict = field(default_factory=lambda: {"provider": "template", "daily_budget_usd": 0})
+    browser: dict = field(default_factory=dict)
 
     def validate(self):
-        if self.mode not in {"demo", "manual"}:
-            raise ValueError("Only demo/manual modes are supported. Live X access is not verified.")
+        if self.mode not in {"demo", "manual", "browser"}:
+            raise ValueError("Mode must be demo, manual, or browser")
         ZoneInfo(self.timezone)
         if not (1 <= self.daily_post_limit <= 20 and 1 <= self.minimum_gap_minutes <= 1440):
             raise ValueError("Use 1–20 posts/day and a 1–1440 minute minimum gap")
@@ -47,6 +48,21 @@ class Settings:
                 raise ValueError("public_origin must be an HTTPS origin without credentials or path")
         if self.model.get("provider", "template") not in {"template", "openai-compatible"}:
             raise ValueError("Unknown model provider")
+        if not isinstance(self.browser, dict):
+            raise ValueError("browser must be a TOML table")
+        queries = self.browser.get("search_queries", [])
+        if not isinstance(queries, list) or len(queries) > 30 or not all(isinstance(v, str) and 0 < len(v) <= 120 for v in queries):
+            raise ValueError("browser.search_queries must contain at most 30 short strings")
+        accounts = self.browser.get("watch_accounts", [])
+        if not isinstance(accounts, list) or len(accounts) > 50 or not all(isinstance(v, str) and v.lstrip("@").replace("_", "").isalnum() and len(v.lstrip("@")) <= 15 for v in accounts):
+            raise ValueError("browser.watch_accounts contains an invalid X account")
+        poll = int(self.browser.get("poll_minutes", 20))
+        minimum_score = int(self.browser.get("minimum_score", 35))
+        if not (5 <= poll <= 1440 and 0 <= minimum_score <= 100):
+            raise ValueError("Invalid browser poll interval or minimum score")
+        base_url = self.browser.get("base_url", "https://x.com")
+        if base_url != "https://x.com" and not self.browser.get("allow_test_site", False):
+            raise ValueError("browser.base_url must be https://x.com")
         return self
 
 

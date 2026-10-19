@@ -108,9 +108,9 @@ class Service:
             review=inspect_draft(c,d["body"],p,did)
             if review["blockers"]:
                 raise Conflict("Approval blocked: " + "; ".join(review["blockers"]))
-            if self.settings.mode=="manual" and (p["fictional"] or d["body"]["fictional"]):
+            if self.settings.mode in {"manual", "browser"} and (p["fictional"] or d["body"]["fictional"]):
                 raise Conflict("Replace the fictional project profile and regenerate before real manual use.")
-            if self.settings.mode=="manual" and d['body'].get('opportunity_id'):
+            if self.settings.mode in {"manual", "browser"} and d['body'].get('opportunity_id'):
                 context=c.execute("SELECT body FROM opportunities WHERE id=?",(d['body']['opportunity_id'],)).fetchone()
                 if context and json.loads(context[0])['fictional']:
                     raise Conflict("A real reply/quote cannot use fictional conversation context.")
@@ -125,9 +125,9 @@ class Service:
         review=inspect_draft(c,d["body"],p,d["id"],now)
         if review["blockers"]:
             raise Conflict("Review no longer passes: "+"; ".join(review["blockers"]))
-        if self.settings.mode=="manual" and (p["fictional"] or d["body"]["fictional"]):
+        if self.settings.mode in {"manual", "browser"} and (p["fictional"] or d["body"]["fictional"]):
             raise Conflict("Fictional content cannot enter the real manual workflow.")
-        if self.settings.mode=="manual" and d['body'].get('opportunity_id'):
+        if self.settings.mode in {"manual", "browser"} and d['body'].get('opportunity_id'):
             context=c.execute("SELECT body FROM opportunities WHERE id=?",(d['body']['opportunity_id'],)).fetchone()
             if context and json.loads(context[0])['fictional']:
                 raise Conflict("Fictional context cannot enter the real manual workflow.")

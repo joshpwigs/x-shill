@@ -57,7 +57,7 @@ def generate(db, settings, request, profile, opportunity=None):
     if cfg.get("provider", "template") == "template":
         return templates(request, profile)
     if settings.mode == "demo":
-        raise GenerationError("Demo mode is offline. Use manual mode to explicitly enable a paid model.")
+        raise GenerationError("Demo mode is offline. Use manual or browser mode to explicitly enable a paid model.")
     key = os.environ.get("MODEL_API_KEY")
     url = cfg.get("base_url", "").rstrip("/")
     u = urlsplit(url)

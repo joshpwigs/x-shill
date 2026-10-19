@@ -130,11 +130,12 @@ def create_app(settings=None,run_worker=True,testing=False):
             c.execute("SELECT 1").fetchone()
             stopped=bool(c.execute("SELECT stopped FROM controls").fetchone()[0])
             spend=c.execute("SELECT COALESCE(SUM(COALESCE(actual_usd,reserved_usd)),0) FROM spending WHERE at>=?",(time.time()-86400,)).fetchone()[0]
+        browser_mode=settings.mode=='browser'
         return {"ok":True,"mode":settings.mode,"stopped":stopped,"timezone":settings.timezone,
-                "x":{"status":"unavailable","detail":"Official docs blocked on 2026-10-18; live endpoints, costs and account permissions unverified. No X requests are made."},
+                "x":{"status":"browser" if browser_mode else "unavailable","detail":"Local browser campaign is configured separately; no X API key is used." if browser_mode else "No X API requests are made."},
                 "model":{"provider":settings.model.get('provider','template'),"key_present":bool(os.environ.get('MODEL_API_KEY')),"reserved_or_spent_usd":spend,"daily_budget_usd":settings.model.get('daily_budget_usd',0)},
                 "limits":{"daily":settings.daily_post_limit,"gap_minutes":settings.minimum_gap_minutes,"quiet_hours":f"{settings.quiet_start:02}:00–{settings.quiet_end:02}:00"},
-                "worker_running":bool(scheduler.thread and scheduler.thread.is_alive()),"publishing":"simulation only" if settings.mode=='demo' else "manual export only"}
+                "worker_running":bool(scheduler.thread and scheduler.thread.is_alive()),"publishing":"simulation only" if settings.mode=='demo' else "local browser campaign + manual originals" if browser_mode else "manual export only"}
 
     @app.get("/api/profile")
     def profile():

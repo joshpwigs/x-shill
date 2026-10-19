@@ -87,7 +87,7 @@ class Scheduler:
             if allowed>now:
                 c.execute("UPDATE jobs SET due_at=? WHERE id=?",(allowed,j["id"]))
                 return "limited"
-            if self.settings.mode=="manual":
+            if self.settings.mode in {"manual", "browser"}:
                 c.execute("UPDATE jobs SET state='ready' WHERE id=?",(j["id"],))
                 c.execute("UPDATE drafts SET status='ready' WHERE id=?",(d["id"],))
                 c.execute("INSERT INTO attempts(job_id,at,outcome) VALUES(?,?,'manual_ready')",(j["id"],now))

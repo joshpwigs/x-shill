@@ -24,7 +24,7 @@ def report(db,settings,now=None):
         questions=[o['text'] for o in conversations if '?' in o['text'] and rank_opportunity(c,o,profile,now)['appropriate'] and (settings.mode=='demo' or not o['fictional'])]
         question_counts=Counter(questions)
         bodies=[json.loads(r[0]) for r in c.execute("SELECT body FROM drafts WHERE created_at>=? AND status!='discarded'",(now-7*86400,))]
-        if settings.mode=='manual':
+        if settings.mode in {'manual', 'browser'}:
             bodies=[b for b in bodies if not b['fictional']]
     # Use snapshots captured 24–48 hours after posting for comparable exposure, not the post's age now.
     week=[r for r in records if now-7*86400<=r['posted_at']<=now]

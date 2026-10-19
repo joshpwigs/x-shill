@@ -54,8 +54,15 @@ class Database:
             CREATE TABLE IF NOT EXISTS spending(
                 id TEXT PRIMARY KEY, at REAL NOT NULL, reserved_usd REAL NOT NULL, actual_usd REAL,
                 status TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS browser_queue(
+                id TEXT PRIMARY KEY, author TEXT NOT NULL, url TEXT NOT NULL UNIQUE,
+                thread_id TEXT NOT NULL, body TEXT NOT NULL, score INTEGER NOT NULL,
+                state TEXT NOT NULL, draft_text TEXT, discovered_at REAL NOT NULL,
+                attempted_at REAL, receipt TEXT, error TEXT);
             CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state,due_at);
             CREATE INDEX IF NOT EXISTS metrics_draft ON metrics(draft_id,captured_at);
+            CREATE INDEX IF NOT EXISTS browser_queue_state ON browser_queue(state,score,discovered_at);
+            INSERT OR IGNORE INTO schema_version VALUES(2);
             """)
         os.chmod(self.path, 0o600)
 

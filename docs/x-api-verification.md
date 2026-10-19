@@ -1,6 +1,6 @@
 # X integration verification record
 
-**Attempted on 2026-10-18. Status: blocked, not verified.**
+**API access attempted on 2026-10-18. Browser-mode rules reviewed on 2026-10-19.**
 
 The development environment's HTTPS egress proxy returned `403 Forbidden` during CONNECT for both `docs.x.com` and `help.x.com`. No official documentation content was retrieved. No X credentials were present. This is a network-policy result, not evidence of invalid X credentials or an X account ban.
 
@@ -17,11 +17,11 @@ These are the official destinations requested for verification; their current co
 
 No Free/Basic/Pro/Enterprise tier, dollar price, endpoint entitlement, or rate-limit number is assumed. **Verified live X costs: unavailable.** Local template/demo/manual-export operations make no X or model requests and incur **$0 external API charges**. Hardware/VPS costs are separate. Do not fund an X account based on this document.
 
-## Deliberate live gate
+## API gate and local browser mode
 
-There is no live X research or publishing implementation. `UnavailableXPublisher` cannot send requests; config accepts only `demo` or `manual`. Adding a token does not unlock it. No authentication flow, token storage, automatic monitoring, X metrics collector, or post-write HTTP endpoint has been guessed or fabricated. The dashboard's X health status explicitly says unavailable.
+`UnavailableXPublisher` still prevents guessed API writes, and adding an API token does not unlock it. Browser mode instead drives a dedicated, locally authenticated Chromium profile through visible X pages. It stores the profile locally, does not read/export cookies, and stops for login or account challenges.
 
-Research currently ranks **manually imported permitted public data** using the configured keywords/account list. It does not scrape, open a browser to collect X data, or poll X. Replies and quote suggestions require individual review and manual export. Originals can be scheduled for a fictional receipt in demo mode or an export-ready state in manual mode.
+Browser mode can poll configured public searches/accounts and post a relevant project reply. It enforces the configured daily limit, gap, quiet hours, one reply per author/thread, verified facts, disclosure, and uncertain-send quarantine. It does not bypass CAPTCHA, rotate accounts/proxies, send DMs, or retry an ambiguous click. X's automation rules reviewed on 2026-10-19 say website scripting and automated keyword-search replies can lead to account suspension; this mode therefore has material account risk.
 
 ## Before a future live adapter is implemented
 
@@ -34,6 +34,6 @@ Research currently ranks **manually imported permitted public data** using the c
 
 ## Model providers
 
-The default template engine is fully offline. An optional OpenAI-compatible JSON chat adapter exists and was tested with mocks only. It requires explicit `mode = "manual"`, a configured model/HTTPS endpoint, `MODEL_API_KEY`, a positive rolling-24-hour budget, and **user-verified** input/output prices. No provider/model was purchased or called. Real availability, credentials, schema compatibility, rate limits and pricing remain unverified.
+The default template engine is fully offline. An optional OpenAI-compatible JSON chat adapter exists and was tested with mocks only. It requires explicit `mode = "manual"` or `mode = "browser"`, a configured model/HTTPS endpoint, `MODEL_API_KEY`, a positive rolling-24-hour budget, and **user-verified** input/output prices. No provider/model was purchased or called. Real availability, credentials, schema compatibility, rate limits and pricing remain unverified.
 
 The adapter reserves a conservative byte-based input token bound plus maximum output cost before calling; it makes no automatic retries, retains reservations for failed/uncertain calls, and uses returned usage when available. The spending guard depends on accurate configured prices and a provider honoring the configured token cap. Provider billing remains authoritative. It is not a substitute for the provider's own hard spending limit.
